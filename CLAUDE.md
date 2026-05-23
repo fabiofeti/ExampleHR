@@ -99,6 +99,20 @@ test/
 | Write tests | `/write-tests` | TEST_STRATEGY, USE_CASES, API_SPEC, RESILIENCE |
 | Review implementation vs. spec | `/review-design` | TRD, PREMISES, SCOPE, ARCHITECTURE |
 
+## Session Workflow (tlc-spec-driven skill)
+
+At the **start** of every implementation session, say `resume work` — loads `HANDOFF.md` + `STATE.md`.
+At the **end** of every session, say `pause work` — writes `HANDOFF.md` with exact stopping point.
+To record a decision mid-session, say `record decision`. To log a blocker, say `log blocker`.
+To break a feature into atomic tasks before implementing, say `break into tasks` for that feature.
+
+| File | Purpose |
+|------|---------|
+| `.specs/project/STATE.md` | Living decisions, blockers, lessons, deferred ideas across sessions |
+| `.specs/project/ROADMAP.md` | Feature progress tracker (update status as features complete) |
+| `.specs/HANDOFF.md` | Session checkpoint — overwritten on each `pause work` |
+| `.specs/features/*/tasks.md` | Atomic task breakdown per feature (created before implementing) |
+
 ## Key Docs
 
 | Document | Path |

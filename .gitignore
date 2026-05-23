@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Database
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+
+# Externally installed skills (re-install with: npx @tech-leads-club/agent-skills install --skill tlc-spec-driven)
+.claude/skills/
+.cursor/
+.windsurf/
+.agents/
+
+# Original assignment PDF (not part of deliverable)
+Take_Home_Assignment_Backend.pdf
