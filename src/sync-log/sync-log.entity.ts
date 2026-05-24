@@ -11,6 +11,7 @@ export enum SyncSource {
   REQUEST_APPROVE = 'request_approve',
   REQUEST_CANCEL = 'request_cancel',
   INVALIDATION = 'invalidation',
+  FAILED_RETRY = 'failed_retry',
 }
 
 @Entity('sync_log')
