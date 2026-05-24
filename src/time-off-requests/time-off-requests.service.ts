@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { TimeOffRequest, RequestStatus } from './time-off-request.entity';
 import { BalancesService } from '../balances/balances.service';
 import { HCM_ADAPTER_TOKEN, IHcmAdapter } from '../hcm-sync/ports/hcm-adapter.port';
+import { InvalidDateRangeException } from '../common/exceptions/invalid-date-range.exception';
 import { RequestConflictException } from '../common/exceptions/request-conflict.exception';
 
 @Injectable()
@@ -25,6 +26,10 @@ export class TimeOffRequestsService {
     endDate: string;
     days: number;
   }): Promise<TimeOffRequest> {
+    if (dto.endDate < dto.startDate) {
+      throw new InvalidDateRangeException();
+    }
+
     const balance = await this.balancesService.findOne(dto.employeeId, dto.locationId);
     this.balancesService.defensiveCheck(balance, dto.days);
 
@@ -53,6 +58,42 @@ export class TimeOffRequestsService {
       rejectionReason: null,
     });
     return this.repo.save(request);
+  }
+
+  async findMany(query: {
+    employeeId?: string;
+    locationId?: string;
+    status?: RequestStatus;
+    startDate?: string;
+    endDate?: string;
+    page: number;
+    limit: number;
+  }): Promise<{ data: TimeOffRequest[]; total: number; page: number; limit: number }> {
+    const qb = this.repo.createQueryBuilder('r');
+
+    if (query.employeeId) {
+      qb.andWhere('r.employee_id = :employeeId', { employeeId: query.employeeId });
+    }
+    if (query.locationId) {
+      qb.andWhere('r.location_id = :locationId', { locationId: query.locationId });
+    }
+    if (query.status) {
+      qb.andWhere('r.status = :status', { status: query.status });
+    }
+    if (query.startDate) {
+      qb.andWhere('r.start_date >= :startDate', { startDate: query.startDate });
+    }
+    if (query.endDate) {
+      qb.andWhere('r.end_date <= :endDate', { endDate: query.endDate });
+    }
+
+    const [data, total] = await qb
+      .orderBy('r.created_at', 'DESC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit)
+      .getManyAndCount();
+
+    return { data, total, page: query.page, limit: query.limit };
   }
 
   async findOne(id: string): Promise<TimeOffRequest> {

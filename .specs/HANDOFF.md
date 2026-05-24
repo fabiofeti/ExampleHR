@@ -1,8 +1,8 @@
 # Handoff
 
 **Date:** 2026-05-24T00:00:00Z
-**Feature:** F-06 — Resilience: circuit breaker + retry + health check + graceful shutdown
-**Task:** All 3 tasks complete — F-06 fully delivered ✅
+**Feature:** F-07 — API layer: controllers + DTOs + global filter + trace interceptor
+**Task:** All tasks complete — F-07 fully delivered ✅
 
 ---
 
@@ -18,43 +18,57 @@
   - T5: `HcmSyncService.handleBatchSync()` — full `dataSource.transaction()`, reconciliation
   - T6: `HcmSyncModule` updated; integration tests I-04 + I-05
 
-- **F-06 — all 3 tasks (this session):**
-  - T1: Circuit breaker in `HcmAdapterService` (`src/hcm-sync/adapters/hcm-adapter.service.ts`) — three `opossum` `CircuitBreaker` instances (`deductBreaker`, `restoreBreaker`, `pingBreaker`), config from `ConfigService`, fallback throws `HcmUnavailableException`. Tests U-A-10, U-A-11, U-A-12.
-  - T2: Retry + dead-letter on `restore()` — `FAILED_RETRY` added to `SyncSource` enum; `executeRestore` retries 3×(1s/2s/4s); on exhaustion writes `sync_log` with `source: FAILED_RETRY` + logs `MANUAL_RECONCILIATION_REQUIRED`; `SyncLogService` injected. Tests U-A-13 (R-03), U-A-14 (R-04).
-  - T3: `HealthController` + `HealthModule` — `GET /v1/health` via `@nestjs/terminus`; custom `HcmHealthIndicator` (axios, no `@nestjs/axios`); `ok`/`degraded`/`down` states; integration tests R-05, R-06, R-07.
+- **F-06 — all 3 tasks (prior session):**
+  - T1: Circuit breaker in `HcmAdapterService` — three `opossum` `CircuitBreaker` instances
+  - T2: Retry + dead-letter on `restore()` — `FAILED_RETRY` SyncSource; 3× exponential backoff
+  - T3: `HealthController` + `HealthModule` — `GET /v1/health`; ok/degraded/down states
 
-- **Test counts:** 50 total (34 unit + 11 integration + 5 new) — all pass
-- **`npm run build`** exits 0
-- **Branch:** `feat/Tasks-06`
+- **F-07 — all tasks (this session):**
+  - `TraceInterceptor` (`src/common/interceptors/trace.interceptor.ts`) — generates UUID v4 `traceId`, attaches to `request.traceId`, returns `X-Trace-Id` header on success responses
+  - `AllExceptionsFilter` (`src/common/filters/all-exceptions.filter.ts`) — catches `DomainException`, `HttpException` (incl. `ValidationPipe` → `VALIDATION_ERROR` + `details` array), `QueryFailedError` → 500 INTERNAL_ERROR, unknown errors; sets `X-Trace-Id` on error responses
+  - `TraceId` param decorator (`src/common/decorators/trace-id.decorator.ts`) — extracts `request.traceId` for service calls
+  - `InvalidDateRangeException` (`src/common/exceptions/invalid-date-range.exception.ts`) — 400 `INVALID_DATE_RANGE`
+  - `BalancesController` — `GET /v1/balances/:employeeId/:locationId` → `BalanceResponseDto`
+  - `TimeOffRequestsController` — POST (201), GET list (paginated), GET by id, PATCH approve/reject/cancel
+  - `HcmSyncController` — POST realtime, POST batch (maps `balances` field to service's `records`)
+  - `CommonModule` registers `APP_FILTER` + `APP_INTERCEPTOR` globally
+  - All modules updated with `controllers` arrays
+  - `TimeOffRequestsService.findMany()` added — QueryBuilder with optional filters + pagination
+  - Date validation added to `submit()` — throws `InvalidDateRangeException` if `endDate < startDate`
+
+- **Test counts:** 50 total — all pass ✅
+- **`npm run build`** exits 0 ✅
 
 ### Key implementation details
 
-- `HcmAdapterService` now injects `SyncLogService` (available via `HcmSyncModule` → `SyncLogModule`, no module changes needed)
-- `CircuitBreaker.isOurError()` distinguishes circuit-open rejections from domain exceptions in fallback handlers — `HcmRejectionException`/`InsufficientBalanceException` propagate correctly
-- `executeRestore` retry uses `sleep()` helper (setTimeout-based); tests use `jest.useFakeTimers()` + `jest.runAllTimersAsync()`; rejection handler attached BEFORE advancing timers to avoid `PromiseRejectionHandledWarning`
-- `HcmHealthIndicator` is a custom `HealthIndicator` subclass using `axios` directly; `HCM_BASE_URL` injected via `HCM_BASE_URL_TOKEN` for testability
-- `HealthController` catches `ServiceUnavailableException` from terminus; if only `hcm` failed → HTTP 200 `{ status: 'degraded' }`; if `db` failed → rethrows → HTTP 503
+- `DomainException` is checked BEFORE `HttpException` in the filter (DomainException extends HttpException)
+- `ValidationPipe` error detection: `Array.isArray(res.message)` → flattens to `details` array
+- `TraceInterceptor` uses `tap()` which only fires on success; filter handles `X-Trace-Id` for errors
+- `APP_FILTER` + `APP_INTERCEPTOR` in `CommonModule` (already imported by `AppModule`) → global scope
+- HCM batch controller maps DTO `balances` → service `records` (interface mismatch bridged at controller boundary)
+- `findMany()` uses QueryBuilder with column-name style conditions (consistent with existing service code)
 
 ---
 
 ## In Progress
 
-Nothing — session ended cleanly after F-06 completion.
+Nothing — session ended cleanly after F-07 completion.
 
 ---
 
 ## Pending
 
-1. **F-07 — API layer: controllers + DTOs + global filter + trace interceptor**
-   - `TimeOffRequestsController` (submit/approve/reject/cancel/list/get)
-   - `BalancesController` (GET balance)
-   - `HcmSyncController` (POST realtime, POST batch)
-   - Global exception filter (`AllExceptionsFilter`) in `CommonModule`
-   - Trace interceptor (`TraceInterceptor`) assigning UUID traceId per request
-   - Use `/implement-api` command
+1. **F-08 — Mock HCM server**
+   - Express server in `test/mock-hcm/`
+   - Configurable balance state
+   - Supports `timeout-next` mode for resilience testing
+   - Use `/implement-mock-hcm` command
 
-2. **F-08 — Mock HCM server**
-3. **F-09 — Full test suite**
+2. **F-09 — Full test suite: unit + integration + E2E**
+   - E2E tests via Supertest + embedded mock HCM server
+   - Covers happy paths, HCM errors, race conditions
+   - Target: coverage ≥ 80%
+   - Use `/write-tests` command
 
 ---
 
@@ -67,8 +81,8 @@ Nothing — session ended cleanly after F-06 completion.
 
 ## Context
 
-- F-06 is the last infrastructure/resilience layer; all core business logic and resilience patterns are now implemented
-- No controllers yet (F-07); services are only callable internally
-- Circuit breaker state is in-memory (resets on process restart) — acceptable for Phase 1
-- Related decisions: AD-007 (circuit breaker), AD-009 (idempotency key, retry on restore only)
-- Milestone M4 entry gate: F-07 complete (`/health` returns ok; all E2E tests pass after F-08 + F-09)
+- F-07 completes M4 milestone entry gate (all services HTTP-accessible; `/health` already implemented in F-06)
+- M4 is fully delivered — `/health`, all business endpoints, global error pipeline, trace IDs
+- M5 (deliverable) needs F-08 + F-09: mock HCM + full test suite including E2E
+- API versioning: `setGlobalPrefix('v1')` already in `main.ts`; all routes under `/v1/`
+- Related decisions: AD-006 (REST), AD-008 (dependency inversion), AD-010 (agentic dev)
