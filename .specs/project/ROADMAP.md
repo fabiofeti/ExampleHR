@@ -15,7 +15,7 @@
 | F-04 | HCM sync: adapter interface + HTTP client | `/implement-sync` | ✅ Complete | `.specs/features/hcm-sync/tasks.md` |
 | F-05 | HCM sync: realtime webhook + batch ingest + reconciliation | `/implement-sync` | ✅ Complete | `.specs/features/hcm-sync/tasks.md` |
 | F-06 | Resilience: circuit breaker + retry + health check + graceful shutdown | `/implement-resilience` | ✅ Complete | `.specs/features/resilience/tasks.md` |
-| F-07 | API layer: controllers + DTOs + global filter + trace interceptor | `/implement-api` | ⬜ Not started | `.specs/features/api-layer/tasks.md` |
+| F-07 | API layer: controllers + DTOs + global filter + trace interceptor | `/implement-api` | ✅ Complete | `.specs/features/api-layer/tasks.md` |
 | F-08 | Mock HCM server (test fixture) | `/implement-mock-hcm` | ⬜ Not started | — |
 | F-09 | Test suite: unit + integration + E2E + resilience | `/write-tests` | ⬜ Not started | `.specs/features/test-suite/tasks.md` |
 
