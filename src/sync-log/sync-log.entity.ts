@@ -25,7 +25,7 @@ export class SyncLog {
   @Column({ name: 'location_id' })
   locationId!: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'simple-enum', enum: SyncSource })
   source!: SyncSource;
 
   @Column({ name: 'previous_available', type: 'float' })
