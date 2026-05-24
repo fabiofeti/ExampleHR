@@ -2,7 +2,7 @@
 
 **Feature:** F-01 — NestJS project scaffold
 **Milestone:** M1 — `npm run start` boots with empty DB
-**Status:** Draft
+**Status:** Complete ✅
 **Refs:** `CLAUDE.md`, `docs/CLEAN_CODE.md`, `docs/RESILIENCE.md`
 
 ---
