@@ -123,6 +123,15 @@ npm run test:cov →  Statements 99.75% | Branches 96.42% | Lines 99.73%
 
 Coverage report is written to `coverage/lcov-report/index.html` and can be opened in a browser.
 
+> **Note on `[ERROR] Health Check has failed!` log lines**
+>
+> You will see a few lines like this during `npm run test`:
+> ```
+> [Nest] ERROR [Testing] Health Check has failed! {"hcm":{"status":"down"}}
+> [Nest] ERROR [Testing] Health Check has failed! {"db":{"status":"down"}}
+> ```
+> These are **expected and intentional**. The health integration tests (R-06, R-07) deliberately simulate an unreachable HCM and a destroyed database connection to verify the degraded/down behaviour. NestJS's `TerminusModule` always logs at `ERROR` level when any indicator fails — that is framework behaviour, not a defect. All tests still pass.
+
 ---
 
 ## Mock HCM Server
