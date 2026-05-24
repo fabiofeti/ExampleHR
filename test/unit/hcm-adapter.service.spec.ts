@@ -224,4 +224,39 @@ describe('HcmAdapterService', () => {
       expect(mockGet).not.toHaveBeenCalled();
     });
   });
+
+  describe('branch coverage', () => {
+    it('U-A-17: deduct logger uses err.message when caught value is an Error instance', async () => {
+      // All other deduct tests throw plain objects; this covers the `err instanceof Error` true branch
+      mockPost.mockRejectedValue(new Error('network failure'));
+
+      await expect(service.deduct('E-1', 'L-1', 3, 'req-17')).rejects.toThrow(
+        HcmUnavailableException,
+      );
+    });
+
+    it('U-A-18: mapDeductError uses default message when HCM 4xx body.message is not a string', async () => {
+      // Covers `typeof message === 'string' ? message : 'HCM rejected the operation'` false branch
+      mockPost.mockRejectedValue({
+        isAxiosError: true,
+        response: { status: 400, data: { code: 'UNKNOWN', message: 42 } },
+      });
+
+      await expect(service.deduct('E-1', 'L-1', 3, 'req-18')).rejects.toThrow(
+        HcmRejectionException,
+      );
+    });
+
+    it('U-A-19: restore logger uses err.message when caught value is an Error instance', async () => {
+      // Covers the `err instanceof Error` true branch in executeRestore catch logger
+      jest.useFakeTimers();
+      mockPost.mockRejectedValue(new Error('connection reset'));
+
+      const assertion = expect(
+        service.restore('E-1', 'L-1', 3, 'req-19'),
+      ).rejects.toThrow(HcmUnavailableException);
+      await jest.runAllTimersAsync();
+      await assertion;
+    });
+  });
 });

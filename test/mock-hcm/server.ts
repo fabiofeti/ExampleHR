@@ -100,6 +100,23 @@ export function createMockHcmApp(examplehrBaseUrl: string): express.Application 
       timestamp: new Date().toISOString(),
     });
 
+    const currentMode = getMode();
+
+    if (currentMode === 'timeout-next') {
+      resetMode();
+      await sleep(TIMEOUT_DELAY_MS);
+      return res.status(503).json({ message: 'Timeout simulated' });
+    }
+
+    if (currentMode === 'error-next') {
+      resetMode();
+      return res.status(500).json({ message: 'Internal server error simulated' });
+    }
+
+    if (currentMode === 'error-always') {
+      return res.status(500).json({ message: 'Internal server error simulated' });
+    }
+
     const updated = restoreBalance(employeeId, locationId, days);
     if (!updated) {
       return res.status(404).json({ message: `Balance not found for ${employeeId}/${locationId}` });

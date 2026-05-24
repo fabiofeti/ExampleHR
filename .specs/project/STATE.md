@@ -1,7 +1,7 @@
 # State
 
 **Last Updated:** 2026-05-24T00:00:00Z
-**Current Work:** F-07 complete (M4 milestone delivered). Next: F-08 mock HCM server → F-09 full test suite → M5 deliverable.
+**Current Work:** F-08 complete (mock HCM server committed + pushed). Next: F-09 full test suite → M5 deliverable.
 
 ---
 

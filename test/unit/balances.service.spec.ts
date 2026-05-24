@@ -127,5 +127,51 @@ describe('BalancesService', () => {
       expect(mockRepo.createQueryBuilder).not.toHaveBeenCalled();
       expect(mockSyncLog.append).toHaveBeenCalledTimes(1);
     });
+
+    it('U-B-08: fetchBalance throws NotFoundException when balance does not exist', async () => {
+      mockRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(
+        service.deductWithLock('E-1', 'LOC-1', 3, 'req-x', 'system'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('restoreWithLock', () => {
+    it('U-B-09: resolves and logs REQUEST_CANCEL sync entry on success', async () => {
+      mockRepo.findOneBy.mockResolvedValue(makeBalance(5));
+      mockExecute.mockResolvedValue({ affected: 1 });
+
+      await expect(
+        service.restoreWithLock('E-1', 'LOC-1', 3, 'req-1', 'system'),
+      ).resolves.toBeUndefined();
+
+      expect(mockSyncLog.append).toHaveBeenCalledTimes(1);
+    });
+
+    it('U-B-10: throws BalanceConflictException when both update attempts return 0 rows', async () => {
+      mockRepo.findOneBy.mockResolvedValue(makeBalance(5));
+      mockExecute.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        service.restoreWithLock('E-1', 'LOC-1', 3, 'req-1', 'system'),
+      ).rejects.toThrow(BalanceConflictException);
+
+      expect(mockExecute).toHaveBeenCalledTimes(2);
+    });
+
+    it('U-B-11: resolves when first update fails but retry succeeds', async () => {
+      mockRepo.findOneBy.mockResolvedValue(makeBalance(5));
+      mockExecute
+        .mockResolvedValueOnce({ affected: 0 })
+        .mockResolvedValueOnce({ affected: 1 });
+
+      await expect(
+        service.restoreWithLock('E-1', 'LOC-1', 3, 'req-1', 'system'),
+      ).resolves.toBeUndefined();
+
+      expect(mockExecute).toHaveBeenCalledTimes(2);
+      expect(mockSyncLog.append).toHaveBeenCalledTimes(1);
+    });
   });
 });
