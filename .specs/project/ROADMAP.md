@@ -9,7 +9,7 @@
 
 | # | Feature | Command | Status | Tasks file |
 |---|---------|---------|--------|-----------|
-| F-01 | NestJS project scaffold | — | ⬜ Not started | — |
+| F-01 | NestJS project scaffold | — | ✅ Complete | `.specs/features/scaffold/tasks.md` |
 | F-02 | Core: Balance entity + service + optimistic locking | `/implement-core` | ⬜ Not started | `.specs/features/balances/tasks.md` |
 | F-03 | Core: Time-off request state machine | `/implement-core` | ⬜ Not started | `.specs/features/time-off-requests/tasks.md` |
 | F-04 | HCM sync: adapter interface + HTTP client | `/implement-sync` | ⬜ Not started | `.specs/features/hcm-sync/tasks.md` |
