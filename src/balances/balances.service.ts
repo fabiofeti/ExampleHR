@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Balance } from './balance.entity';
 import { SyncLogService } from '../sync-log/sync-log.service';
 import { SyncSource } from '../sync-log/sync-log.entity';
@@ -37,13 +37,14 @@ export class BalancesService {
     days: number,
     requestId: string,
     actor: string,
+    manager?: EntityManager,
   ): Promise<void> {
-    let balance = await this.findOne(employeeId, locationId);
-    let success = await this.tryUpdate(balance, days, 'deduct');
+    let balance = await this.fetchBalance(employeeId, locationId, manager);
+    let success = await this.tryUpdate(balance, days, 'deduct', manager);
 
     if (!success) {
-      balance = await this.findOne(employeeId, locationId);
-      success = await this.tryUpdate(balance, days, 'deduct');
+      balance = await this.fetchBalance(employeeId, locationId, manager);
+      success = await this.tryUpdate(balance, days, 'deduct', manager);
       if (!success) {
         throw new BalanceConflictException();
       }
@@ -66,13 +67,14 @@ export class BalancesService {
     days: number,
     requestId: string,
     actor: string,
+    manager?: EntityManager,
   ): Promise<void> {
-    let balance = await this.findOne(employeeId, locationId);
-    let success = await this.tryUpdate(balance, days, 'restore');
+    let balance = await this.fetchBalance(employeeId, locationId, manager);
+    let success = await this.tryUpdate(balance, days, 'restore', manager);
 
     if (!success) {
-      balance = await this.findOne(employeeId, locationId);
-      success = await this.tryUpdate(balance, days, 'restore');
+      balance = await this.fetchBalance(employeeId, locationId, manager);
+      success = await this.tryUpdate(balance, days, 'restore', manager);
       if (!success) {
         throw new BalanceConflictException();
       }
@@ -89,17 +91,35 @@ export class BalancesService {
     });
   }
 
+  private async fetchBalance(
+    employeeId: string,
+    locationId: string,
+    manager?: EntityManager,
+  ): Promise<Balance> {
+    const repo = manager ? manager.getRepository(Balance) : this.repo;
+    const balance = await repo.findOneBy({ employeeId, locationId });
+    if (!balance) {
+      throw new NotFoundException(
+        `Balance not found for employee ${employeeId} at location ${locationId}`,
+      );
+    }
+    return balance;
+  }
+
   private async tryUpdate(
     balance: Balance,
     days: number,
     operation: 'deduct' | 'restore',
+    manager?: EntityManager,
   ): Promise<boolean> {
     const availDelta = operation === 'deduct' ? -days : days;
     const usedDelta = operation === 'deduct' ? days : -days;
 
-    const result = await this.repo
-      .createQueryBuilder()
-      .update(Balance)
+    const qb = manager
+      ? manager.createQueryBuilder().update(Balance)
+      : this.repo.createQueryBuilder().update(Balance);
+
+    const result = await qb
       .set({
         available: () => `available + ${availDelta}`,
         used: () => `used + ${usedDelta}`,
