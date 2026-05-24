@@ -2,7 +2,7 @@
 
 **Feature:** F-02 — Core: Balance entity + service + optimistic locking
 **Milestone:** M2 — Unit tests pass for all service methods
-**Status:** Draft
+**Status:** Complete ✅
 **Refs:** `docs/TRD.md`, `docs/DATA_MODEL.md`, `docs/CLEAN_CODE.md`, `docs/ERROR_HANDLING.md`, `docs/TEST_STRATEGY.md`
 
 ---
