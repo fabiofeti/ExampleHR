@@ -1,57 +1,54 @@
 # Handoff
 
-**Date:** 2026-05-23T00:00:00Z
-**Feature:** F-01 — NestJS project scaffold
-**Task:** Tasks drafted — awaiting approval before implementation begins
+**Date:** 2026-05-24T00:00:00Z
+**Feature:** F-02 — Core: Balance entity + service + optimistic locking
+**Task:** All 5 tasks complete — F-02 fully delivered ✅
 
 ---
 
 ## Completed ✓
 
-- Full documentation suite (11 docs in `docs/`)
-- 7 scoped slash commands (`.claude/commands/`)
-- `.specs/project/PROJECT.md` — vision, goals, tech stack, scope, constraints
-- `.specs/project/ROADMAP.md` — 9-feature tracker (F-01→F-09), all ⬜ Not started
-- `.specs/project/STATE.md` — 10 architectural decisions, 2 active blockers, todos
-- `tlc-spec-driven` skill installed and integrated (selective: STATE.md, ROADMAP.md, session handoff only)
-- `.specs/features/scaffold/tasks.md` — F-01 task breakdown, status: **Draft**
+- F-01 NestJS scaffold (merged from `feat/fist-steps` into `feat/Tasks-f02`)
+- **F-02 — all 5 tasks:**
+  - T1: `Balance` entity (`src/balances/balance.entity.ts`) + `BalancesModule` wired
+  - T2: `SyncLog` entity + `SyncSource` enum + `SyncLogService.append()` (`src/sync-log/`)
+  - T3: `DomainException` base + `InsufficientBalanceException` + `BalanceConflictException` (`src/common/exceptions/`)
+  - T4: `BalancesService` — `findOne`, `defensiveCheck`, `deductWithLock`, `restoreWithLock` (optimistic lock + 1 retry) + unit tests U-B-01..06 (`test/unit/balances.service.spec.ts`)
+  - T5: Integration tests I-03 (concurrent conflict) + I-06 (sync log delta) (`test/integration/balances.integration.spec.ts`)
+- 9 tests passing (6 unit + 3 integration)
+- `npm run build` exits 0
 
 ---
 
 ## In Progress
 
-- F-01 task breakdown drafted (7 tasks, all 3 validation checks passed)
-- Awaiting user approval of tasks before execution starts
+Nothing — session ended cleanly after F-02 completion.
 
 ---
 
 ## Pending
 
-1. **Approve F-01 tasks** — review `.specs/features/scaffold/tasks.md` and say `implement`
-2. **T1** — Scaffold NestJS project core files (`nest new` or manual)
-3. **T2** — Install all project dependencies (`npm install`)
-4. **T3 [P]** — Configure strict TypeScript in `tsconfig.json`
-5. **T4 [P]** — Create `.env.example` and `.env`
-6. **T5** — Create 6 empty domain module stubs
-7. **T6** — Configure `AppModule` (ConfigModule + TypeORM + domain modules)
-8. **T7** — Configure `main.ts` (global prefix, ValidationPipe, shutdown hooks) → M1 milestone
-
-After M1: create `.specs/codebase/TESTING.md`, then `break into tasks` for F-02 (balances) and F-03 (time-off requests) in parallel.
+1. **`break into tasks` for F-03** — Core: Time-off request state machine
+   - Entities: `TimeOffRequest` entity with `RequestStatus` enum
+   - Service: `TimeOffRequestsService` — `submit`, `approve`, `reject`, `cancel`
+   - Approval flow: defensiveCheck → HCM deduct → `deductWithLock` (in single DB transaction)
+   - Overlap detection query (409 on overlapping PENDING/APPROVED requests)
+   - Unit tests U-R-01..10 + integration tests I-01, I-02
+2. After F-03: F-04/F-05 (HCM sync adapter + webhooks) in sequence
 
 ---
 
 ## Blockers
 
-- **B-001** — HCM API field names unconfirmed. No impact on F-01 scaffold.
-- **B-002** — HCM idempotency key unconfirmed. No impact on F-01 scaffold.
-
-Both blockers are deferred; scaffold proceeds with mock adapter shapes.
+- **B-001** — HCM API field names unconfirmed. No impact on F-03 (F-03 injects `IHcmAdapter` interface, not the concrete class).
+- **B-002** — HCM idempotency key unconfirmed. No impact on F-03 (deduct retry disabled per AD-009).
 
 ---
 
 ## Context
 
-- Branch: none (not a git repo yet — `git init` not run)
-- Uncommitted: all files are untracked (no git)
-- Related decisions: AD-010 (agentic development), AD-008 (IHcmAdapter DI pattern referenced in T5 module stubs)
-- Next feature order per ROADMAP: F-01 → F-02 + F-03 (parallel) → F-04/F-05 → F-06 → F-07 → F-08 → F-09
+- Branch: `feat/Tasks-f02`
+- Uncommitted: none — all committed
+- `feat/fist-steps` (F-01) already merged into current branch
+- Related decisions: AD-001 (HCM-first), AD-003 (defensive check), AD-004 (optimistic locking), AD-008 (IHcmAdapter DI), AD-009 (no deduct retry)
+- Next feature order per ROADMAP: F-03 → F-04 → F-05 → F-06 → F-07 → F-08 → F-09
