@@ -1,63 +1,74 @@
 # Handoff
 
 **Date:** 2026-05-24T00:00:00Z
-**Feature:** F-04 — HCM sync: adapter interface + HTTP client
-**Task:** All 3 tasks complete — F-04 fully delivered ✅
+**Feature:** F-06 — Resilience: circuit breaker + retry + health check + graceful shutdown
+**Task:** All 3 tasks complete — F-06 fully delivered ✅
 
 ---
 
 ## Completed ✓
 
-- **F-04 — all 3 tasks:**
-  - T1: `HcmAdapterService` (`src/hcm-sync/adapters/hcm-adapter.service.ts`) + 9 unit tests U-A-01..U-A-09
-  - T2: `HcmSyncModule` wired — provides `HCM_ADAPTER_TOKEN → HcmAdapterService`, exports it
-  - T3: `TimeOffRequestsModule` imports `HcmSyncModule` — adapter resolves in production
-- 32 tests passing (23 pre-existing + 9 new unit tests)
-- `npm run build` exits 0
+- **F-04 — all 3 tasks (prior session):**
+  - T1: `HcmAdapterService` + 9 unit tests U-A-01..U-A-09
+  - T2: `HcmSyncModule` provides `HCM_ADAPTER_TOKEN → HcmAdapterService`
+  - T3: `TimeOffRequestsModule` imports `HcmSyncModule`
+
+- **F-05 — all 3 tasks (prior session):**
+  - T4: `HcmSyncService.handleRealtimeUpdate()` — upserts balance, writes REALTIME_WEBHOOK sync_log, invalidates PENDING/APPROVED requests
+  - T5: `HcmSyncService.handleBatchSync()` — full `dataSource.transaction()`, reconciliation
+  - T6: `HcmSyncModule` updated; integration tests I-04 + I-05
+
+- **F-06 — all 3 tasks (this session):**
+  - T1: Circuit breaker in `HcmAdapterService` (`src/hcm-sync/adapters/hcm-adapter.service.ts`) — three `opossum` `CircuitBreaker` instances (`deductBreaker`, `restoreBreaker`, `pingBreaker`), config from `ConfigService`, fallback throws `HcmUnavailableException`. Tests U-A-10, U-A-11, U-A-12.
+  - T2: Retry + dead-letter on `restore()` — `FAILED_RETRY` added to `SyncSource` enum; `executeRestore` retries 3×(1s/2s/4s); on exhaustion writes `sync_log` with `source: FAILED_RETRY` + logs `MANUAL_RECONCILIATION_REQUIRED`; `SyncLogService` injected. Tests U-A-13 (R-03), U-A-14 (R-04).
+  - T3: `HealthController` + `HealthModule` — `GET /v1/health` via `@nestjs/terminus`; custom `HcmHealthIndicator` (axios, no `@nestjs/axios`); `ok`/`degraded`/`down` states; integration tests R-05, R-06, R-07.
+
+- **Test counts:** 50 total (34 unit + 11 integration + 5 new) — all pass
+- **`npm run build`** exits 0
+- **Branch:** `feat/Tasks-06`
 
 ### Key implementation details
 
-- Raw `axios` (no `@nestjs/axios`) — `AxiosInstance` created in constructor from `ConfigService`
-- File location: `src/hcm-sync/adapters/hcm-adapter.service.ts` (CLEAN_CODE.md §3: `adapters/` subdir)
-- Error mapping in `deduct()`: HCM 4xx + `code=INSUFFICIENT_BALANCE` → `InsufficientBalanceException(0, days)`; other 4xx → `HcmRejectionException`; 5xx/timeout/no-response → `HcmUnavailableException`
-- `restore()`: ALL errors → `HcmUnavailableException` (consistent with cancel flow expectations)
-- `ping()`: never throws — returns `true`/`false`
-- Idempotency key: `{idempotencyKey}-approve` on deduct, `{idempotencyKey}-cancel` on restore
-- Structured `Logger.warn` on all HCM call failures
+- `HcmAdapterService` now injects `SyncLogService` (available via `HcmSyncModule` → `SyncLogModule`, no module changes needed)
+- `CircuitBreaker.isOurError()` distinguishes circuit-open rejections from domain exceptions in fallback handlers — `HcmRejectionException`/`InsufficientBalanceException` propagate correctly
+- `executeRestore` retry uses `sleep()` helper (setTimeout-based); tests use `jest.useFakeTimers()` + `jest.runAllTimersAsync()`; rejection handler attached BEFORE advancing timers to avoid `PromiseRejectionHandledWarning`
+- `HcmHealthIndicator` is a custom `HealthIndicator` subclass using `axios` directly; `HCM_BASE_URL` injected via `HCM_BASE_URL_TOKEN` for testability
+- `HealthController` catches `ServiceUnavailableException` from terminus; if only `hcm` failed → HTTP 200 `{ status: 'degraded' }`; if `db` failed → rethrows → HTTP 503
 
 ---
 
 ## In Progress
 
-Nothing — session ended cleanly after F-04 completion.
+Nothing — session ended cleanly after F-06 completion.
 
 ---
 
 ## Pending
 
-1. **`break into tasks` for F-05** — HCM sync: realtime webhook + batch ingest + reconciliation
-   - `HcmSyncService.handleRealtimeUpdate()` — upsert balance, write sync_log, invalidate PENDING requests
-   - `HcmSyncService.handleBatchSync()` — transactional upsert of all records, reconcile PENDING+APPROVED
-   - Reconciliation query across time_off_requests JOIN balances
-   - Unit tests U-S-01..U-S-08 + integration tests I-04, I-05, I-06
-   - Tasks to be appended to `.specs/features/hcm-sync/tasks.md`
+1. **F-07 — API layer: controllers + DTOs + global filter + trace interceptor**
+   - `TimeOffRequestsController` (submit/approve/reject/cancel/list/get)
+   - `BalancesController` (GET balance)
+   - `HcmSyncController` (POST realtime, POST batch)
+   - Global exception filter (`AllExceptionsFilter`) in `CommonModule`
+   - Trace interceptor (`TraceInterceptor`) assigning UUID traceId per request
+   - Use `/implement-api` command
 
-2. After F-05: F-06 (circuit breaker + retry + health + graceful shutdown)
+2. **F-08 — Mock HCM server**
+3. **F-09 — Full test suite**
 
 ---
 
 ## Blockers
 
-- **B-001** — HCM API field names unconfirmed. Workaround: using mock-hcm assumed paths (`/hcm/deduct`, `/hcm/restore`, `/health`). Update `HcmAdapterService` when confirmed.
-- **B-002** — HCM idempotency key not confirmed. Deduct retry disabled per AD-009. Key is sent on all calls regardless.
+- **B-001** — HCM API field names unconfirmed. Workaround: using mock-hcm assumed paths.
+- **B-002** — HCM idempotency key not confirmed. Deduct retry disabled per AD-009.
 
 ---
 
 ## Context
 
-- All 3 F-04 tasks committed to current branch
-- `TimeOffRequestsModule` now correctly imports `HcmSyncModule` — full DI graph wired for production
-- No circuit breaker yet (F-06); `HcmAdapterService` is the bare HTTP client
-- No retry yet (F-06); retry on `restore()` is F-06's responsibility
-- Related decisions: AD-007 (circuit breaker — F-06), AD-008 (DI via token), AD-009 (idempotency key, no deduct retry)
-- Next: F-05 adds `HcmSyncService` and two controller endpoints (`POST /hcm/sync/realtime`, `POST /hcm/sync/batch`)
+- F-06 is the last infrastructure/resilience layer; all core business logic and resilience patterns are now implemented
+- No controllers yet (F-07); services are only callable internally
+- Circuit breaker state is in-memory (resets on process restart) — acceptable for Phase 1
+- Related decisions: AD-007 (circuit breaker), AD-009 (idempotency key, retry on restore only)
+- Milestone M4 entry gate: F-07 complete (`/health` returns ok; all E2E tests pass after F-08 + F-09)
