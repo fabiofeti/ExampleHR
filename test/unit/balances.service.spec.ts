@@ -103,5 +103,29 @@ describe('BalancesService', () => {
       expect(mockExecute).toHaveBeenCalledTimes(2);
       expect(mockSyncLog.append).toHaveBeenCalledTimes(1);
     });
+
+    it('U-B-07: uses provided EntityManager queryBuilder instead of repo when manager is supplied', async () => {
+      const managerExecute = jest.fn().mockResolvedValue({ affected: 1 });
+      const managerQb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: managerExecute,
+      };
+      const mockManager = {
+        createQueryBuilder: jest.fn().mockReturnValue(managerQb),
+        getRepository: jest.fn().mockReturnValue({
+          findOneBy: jest.fn().mockResolvedValue(makeBalance(10)),
+        }),
+      };
+
+      await expect(
+        service.deductWithLock('E-1', 'LOC-1', 3, 'req-1', 'system', mockManager as any),
+      ).resolves.toBeUndefined();
+
+      expect(mockManager.createQueryBuilder).toHaveBeenCalled();
+      expect(mockRepo.createQueryBuilder).not.toHaveBeenCalled();
+      expect(mockSyncLog.append).toHaveBeenCalledTimes(1);
+    });
   });
 });
