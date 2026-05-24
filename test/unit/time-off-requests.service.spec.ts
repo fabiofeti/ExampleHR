@@ -9,6 +9,7 @@ import { HCM_ADAPTER_TOKEN, IHcmAdapter } from '../../src/hcm-sync/ports/hcm-ada
 import { HcmRejectionException } from '../../src/common/exceptions/hcm-rejection.exception';
 import { HcmUnavailableException } from '../../src/common/exceptions/hcm-unavailable.exception';
 import { RequestConflictException } from '../../src/common/exceptions/request-conflict.exception';
+import { InvalidDateRangeException } from '../../src/common/exceptions/invalid-date-range.exception';
 import { Balance } from '../../src/balances/balance.entity';
 
 describe('TimeOffRequestsService', () => {
@@ -17,6 +18,7 @@ describe('TimeOffRequestsService', () => {
   const mockRepo = {
     findOneBy: jest.fn(),
     save: jest.fn(),
+    create: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
 
@@ -173,6 +175,95 @@ describe('TimeOffRequestsService', () => {
 
       await expect(service.cancel('req-1', 'trace-1')).rejects.toThrow(HcmUnavailableException);
       expect(mockBalancesService.restoreWithLock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('submit', () => {
+    const makeQb = (overlapResult: TimeOffRequest | null = null) => ({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(overlapResult),
+    });
+
+    const baseDto = {
+      employeeId: 'E-1', locationId: 'LOC-1', leaveType: 'VACATION',
+      startDate: '2026-06-01', endDate: '2026-06-05', days: 5,
+    };
+
+    it('U-R-11: throws InvalidDateRangeException when endDate < startDate', async () => {
+      await expect(service.submit({ ...baseDto, startDate: '2026-06-10', endDate: '2026-06-01' }))
+        .rejects.toThrow(InvalidDateRangeException);
+    });
+
+    it('U-R-12: throws RequestConflictException when overlapping PENDING request exists', async () => {
+      mockBalancesService.findOne.mockResolvedValue(makeBalance());
+      mockBalancesService.defensiveCheck.mockReturnValue(undefined);
+      mockRepo.createQueryBuilder.mockReturnValue(makeQb(makeRequest(RequestStatus.PENDING)));
+
+      await expect(service.submit(baseDto)).rejects.toThrow(RequestConflictException);
+    });
+
+    it('U-R-13: creates PENDING request when balance sufficient and no overlap', async () => {
+      const saved = makeRequest(RequestStatus.PENDING);
+      mockBalancesService.findOne.mockResolvedValue(makeBalance());
+      mockBalancesService.defensiveCheck.mockReturnValue(undefined);
+      mockRepo.createQueryBuilder.mockReturnValue(makeQb(null));
+      mockRepo.create.mockReturnValue(saved);
+      mockRepo.save.mockResolvedValue(saved);
+
+      const result = await service.submit(baseDto);
+
+      expect(result.status).toBe(RequestStatus.PENDING);
+      expect(mockRepo.save).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('findOne', () => {
+    it('U-R-14: throws NotFoundException when request does not exist', async () => {
+      mockRepo.findOneBy.mockResolvedValue(null);
+
+      await expect(service.findOne('non-existent')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findMany', () => {
+    const makeQb = () => {
+      const qb = {
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      };
+      return qb;
+    };
+
+    it('U-R-15: returns paginated results with no optional filters (all false branches)', async () => {
+      const qb = makeQb();
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.findMany({ page: 1, limit: 10 });
+
+      expect(result.total).toBe(0);
+      expect(result.data).toHaveLength(0);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(10);
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('U-R-16: applies all optional filters when provided (all true branches)', async () => {
+      const qb = makeQb();
+      mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.findMany({
+        employeeId: 'E-1', locationId: 'LOC-1', status: RequestStatus.PENDING,
+        startDate: '2026-06-01', endDate: '2026-06-30', page: 2, limit: 5,
+      });
+
+      expect(qb.andWhere).toHaveBeenCalledTimes(5);
+      expect(qb.skip).toHaveBeenCalledWith(5); // (2-1) * 5
+      expect(qb.take).toHaveBeenCalledWith(5);
+      expect(result.page).toBe(2);
     });
   });
 });

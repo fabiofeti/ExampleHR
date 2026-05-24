@@ -249,5 +249,32 @@ describe('HcmSyncService', () => {
       );
       expect(result).toEqual({ updated: 1, invalidated: 1, errors: [] });
     });
+
+    it('U-S-09: balance?.available ?? 0 defaults to 0 when balance lookup returns null during reconciliation', async () => {
+      // Covers the false branch of `balance?.available ?? 0` (lines 156-157)
+      fakeBalanceRepo.findOneBy.mockResolvedValue(null); // balance deleted mid-flight
+      fakeBalanceRepo.save.mockResolvedValue(undefined);
+      fakeManager.save.mockResolvedValue(undefined);
+
+      const req: Partial<TimeOffRequest> = {
+        id: 'R-null', employeeId: 'E-1', locationId: 'L-1', days: 10, status: RequestStatus.PENDING,
+      };
+      fakeRequestRepo.createQueryBuilder.mockReturnValue(makeQb([req]));
+      fakeRequestRepo.save.mockResolvedValue(undefined);
+
+      const result = await service.handleBatchSync({
+        records: [{ employeeId: 'E-1', locationId: 'L-1', available: 5, used: 5, total: 10 }],
+      });
+
+      expect(fakeManager.save).toHaveBeenCalledWith(
+        SyncLog,
+        expect.objectContaining({
+          source: SyncSource.INVALIDATION,
+          previousAvailable: 0,
+          newAvailable: 0,
+        }),
+      );
+      expect(result.invalidated).toBe(1);
+    });
   });
 });

@@ -70,7 +70,14 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["src/**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s",
+      "!src/main.ts",
+      "!src/**/*.module.ts",
+      "!src/**/*.entity.ts",
+      "!src/**/*.dto.ts",
+      "!src/**/*.decorator.ts"
+    ],
     "coverageDirectory": "coverage",
     "testEnvironment": "node",
     "forceExit": true

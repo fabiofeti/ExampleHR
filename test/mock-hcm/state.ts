@@ -1,4 +1,4 @@
-export type MockMode = 'normal' | 'reject-next' | 'timeout-next' | 'error-next' | 'accept-all';
+export type MockMode = 'normal' | 'reject-next' | 'timeout-next' | 'error-next' | 'error-always' | 'accept-all';
 
 export interface MockBalance {
   employeeId: string;
