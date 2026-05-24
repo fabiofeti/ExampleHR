@@ -12,7 +12,7 @@
 | F-01 | NestJS project scaffold | — | ✅ Complete | `.specs/features/scaffold/tasks.md` |
 | F-02 | Core: Balance entity + service + optimistic locking | `/implement-core` | ✅ Complete | `.specs/features/balances/tasks.md` |
 | F-03 | Core: Time-off request state machine | `/implement-core` | ✅ Complete | `.specs/features/time-off-requests/tasks.md` |
-| F-04 | HCM sync: adapter interface + HTTP client | `/implement-sync` | ⬜ Not started | `.specs/features/hcm-sync/tasks.md` |
+| F-04 | HCM sync: adapter interface + HTTP client | `/implement-sync` | ✅ Complete | `.specs/features/hcm-sync/tasks.md` |
 | F-05 | HCM sync: realtime webhook + batch ingest + reconciliation | `/implement-sync` | ⬜ Not started | `.specs/features/hcm-sync/tasks.md` |
 | F-06 | Resilience: circuit breaker + retry + health check + graceful shutdown | `/implement-resilience` | ⬜ Not started | `.specs/features/resilience/tasks.md` |
 | F-07 | API layer: controllers + DTOs + global filter + trace interceptor | `/implement-api` | ⬜ Not started | `.specs/features/api-layer/tasks.md` |

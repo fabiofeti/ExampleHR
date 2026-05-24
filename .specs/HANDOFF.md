@@ -1,54 +1,63 @@
 # Handoff
 
 **Date:** 2026-05-24T00:00:00Z
-**Feature:** F-02 — Core: Balance entity + service + optimistic locking
-**Task:** All 5 tasks complete — F-02 fully delivered ✅
+**Feature:** F-04 — HCM sync: adapter interface + HTTP client
+**Task:** All 3 tasks complete — F-04 fully delivered ✅
 
 ---
 
 ## Completed ✓
 
-- F-01 NestJS scaffold (merged from `feat/fist-steps` into `feat/Tasks-f02`)
-- **F-02 — all 5 tasks:**
-  - T1: `Balance` entity (`src/balances/balance.entity.ts`) + `BalancesModule` wired
-  - T2: `SyncLog` entity + `SyncSource` enum + `SyncLogService.append()` (`src/sync-log/`)
-  - T3: `DomainException` base + `InsufficientBalanceException` + `BalanceConflictException` (`src/common/exceptions/`)
-  - T4: `BalancesService` — `findOne`, `defensiveCheck`, `deductWithLock`, `restoreWithLock` (optimistic lock + 1 retry) + unit tests U-B-01..06 (`test/unit/balances.service.spec.ts`)
-  - T5: Integration tests I-03 (concurrent conflict) + I-06 (sync log delta) (`test/integration/balances.integration.spec.ts`)
-- 9 tests passing (6 unit + 3 integration)
+- **F-04 — all 3 tasks:**
+  - T1: `HcmAdapterService` (`src/hcm-sync/adapters/hcm-adapter.service.ts`) + 9 unit tests U-A-01..U-A-09
+  - T2: `HcmSyncModule` wired — provides `HCM_ADAPTER_TOKEN → HcmAdapterService`, exports it
+  - T3: `TimeOffRequestsModule` imports `HcmSyncModule` — adapter resolves in production
+- 32 tests passing (23 pre-existing + 9 new unit tests)
 - `npm run build` exits 0
+
+### Key implementation details
+
+- Raw `axios` (no `@nestjs/axios`) — `AxiosInstance` created in constructor from `ConfigService`
+- File location: `src/hcm-sync/adapters/hcm-adapter.service.ts` (CLEAN_CODE.md §3: `adapters/` subdir)
+- Error mapping in `deduct()`: HCM 4xx + `code=INSUFFICIENT_BALANCE` → `InsufficientBalanceException(0, days)`; other 4xx → `HcmRejectionException`; 5xx/timeout/no-response → `HcmUnavailableException`
+- `restore()`: ALL errors → `HcmUnavailableException` (consistent with cancel flow expectations)
+- `ping()`: never throws — returns `true`/`false`
+- Idempotency key: `{idempotencyKey}-approve` on deduct, `{idempotencyKey}-cancel` on restore
+- Structured `Logger.warn` on all HCM call failures
 
 ---
 
 ## In Progress
 
-Nothing — session ended cleanly after F-02 completion.
+Nothing — session ended cleanly after F-04 completion.
 
 ---
 
 ## Pending
 
-1. **`break into tasks` for F-03** — Core: Time-off request state machine
-   - Entities: `TimeOffRequest` entity with `RequestStatus` enum
-   - Service: `TimeOffRequestsService` — `submit`, `approve`, `reject`, `cancel`
-   - Approval flow: defensiveCheck → HCM deduct → `deductWithLock` (in single DB transaction)
-   - Overlap detection query (409 on overlapping PENDING/APPROVED requests)
-   - Unit tests U-R-01..10 + integration tests I-01, I-02
-2. After F-03: F-04/F-05 (HCM sync adapter + webhooks) in sequence
+1. **`break into tasks` for F-05** — HCM sync: realtime webhook + batch ingest + reconciliation
+   - `HcmSyncService.handleRealtimeUpdate()` — upsert balance, write sync_log, invalidate PENDING requests
+   - `HcmSyncService.handleBatchSync()` — transactional upsert of all records, reconcile PENDING+APPROVED
+   - Reconciliation query across time_off_requests JOIN balances
+   - Unit tests U-S-01..U-S-08 + integration tests I-04, I-05, I-06
+   - Tasks to be appended to `.specs/features/hcm-sync/tasks.md`
+
+2. After F-05: F-06 (circuit breaker + retry + health + graceful shutdown)
 
 ---
 
 ## Blockers
 
-- **B-001** — HCM API field names unconfirmed. No impact on F-03 (F-03 injects `IHcmAdapter` interface, not the concrete class).
-- **B-002** — HCM idempotency key unconfirmed. No impact on F-03 (deduct retry disabled per AD-009).
+- **B-001** — HCM API field names unconfirmed. Workaround: using mock-hcm assumed paths (`/hcm/deduct`, `/hcm/restore`, `/health`). Update `HcmAdapterService` when confirmed.
+- **B-002** — HCM idempotency key not confirmed. Deduct retry disabled per AD-009. Key is sent on all calls regardless.
 
 ---
 
 ## Context
 
-- Branch: `feat/Tasks-f02`
-- Uncommitted: none — all committed
-- `feat/fist-steps` (F-01) already merged into current branch
-- Related decisions: AD-001 (HCM-first), AD-003 (defensive check), AD-004 (optimistic locking), AD-008 (IHcmAdapter DI), AD-009 (no deduct retry)
-- Next feature order per ROADMAP: F-03 → F-04 → F-05 → F-06 → F-07 → F-08 → F-09
+- All 3 F-04 tasks committed to current branch
+- `TimeOffRequestsModule` now correctly imports `HcmSyncModule` — full DI graph wired for production
+- No circuit breaker yet (F-06); `HcmAdapterService` is the bare HTTP client
+- No retry yet (F-06); retry on `restore()` is F-06's responsibility
+- Related decisions: AD-007 (circuit breaker — F-06), AD-008 (DI via token), AD-009 (idempotency key, no deduct retry)
+- Next: F-05 adds `HcmSyncService` and two controller endpoints (`POST /hcm/sync/realtime`, `POST /hcm/sync/batch`)

@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TimeOffRequest } from './time-off-request.entity';
 import { TimeOffRequestsService } from './time-off-requests.service';
 import { BalancesModule } from '../balances/balances.module';
+import { HcmSyncModule } from '../hcm-sync/hcm-sync.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TimeOffRequest]), BalancesModule],
+  imports: [TypeOrmModule.forFeature([TimeOffRequest]), BalancesModule, HcmSyncModule],
   providers: [TimeOffRequestsService],
   exports: [TimeOffRequestsService],
 })
